@@ -17,21 +17,13 @@ def format_to_iso(date):
 async def delay_time(ms):
     await asyncio.sleep(ms / 1000)
 
-# 全局浏览器实例
-browser = None
-
 # telegram消息
 message = 'serv00&ct8自动化脚本运行\n'
 
-async def login(username, password, panel):
-    global browser
-
-    page = None  # 确保 page 在任何情况下都被定义
+async def login(browser, username, password, panel):
+    page = None
     serviceName = 'ct8' if 'ct8' in panel else 'serv00'
     try:
-        if not browser:
-            browser = await launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
-
         page = await browser.newPage()
         url = f'https://{panel}/login/?next=/'
         await page.goto(url)
@@ -69,39 +61,40 @@ async def login(username, password, panel):
 async def main():
     global message
     message = 'serv00&ct8自动化脚本运行\n'
+    browser = await launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
 
     try:
         async with aiofiles.open('accounts.json', mode='r', encoding='utf-8') as f:
             accounts_json = await f.read()
         accounts = json.loads(accounts_json)
-    except Exception as e:
-        print(f'读取 accounts.json 文件时出错: {e}')
-        return
 
-    for account in accounts:
-        username = account['username']
-        password = account['password']
-        panel = account['panel']
+        for account in accounts:
+            username = account['username']
+            password = account['password']
+            panel = account['panel']
 
-        serviceName = 'ct8' if 'ct8' in panel else 'serv00'
-        is_logged_in = await login(username, password, panel)
+            serviceName = 'ct8' if 'ct8' in panel else 'serv00'
+            is_logged_in = await login(browser, username, password, panel)
 
-        if is_logged_in:
-            now_utc = format_to_iso(datetime.utcnow())
-            now_beijing = format_to_iso(datetime.utcnow() + timedelta(hours=8))
-            success_message = f'{serviceName}账号 {username} 于北京时间 {now_beijing}（UTC时间 {now_utc}）登录成功！'
-            message += success_message + '\n'
-            print(success_message)
-        else:
-            message += f'{serviceName}账号 {username} 登录失败，请检查{serviceName}账号和密码是否正确。\n'
-            print(f'{serviceName}账号 {username} 登录失败，请检查{serviceName}账号和密码是否正确。')
+            if is_logged_in:
+                now_utc = format_to_iso(datetime.utcnow())
+                now_beijing = format_to_iso(datetime.utcnow() + timedelta(hours=8))
+                success_message = f'{serviceName}账号 {username} 于北京时间 {now_beijing}（UTC时间 {now_utc}）登录成功！'
+                message += success_message + '\n'
+                print(success_message)
+            else:
+                message += f'{serviceName}账号 {username} 登录失败，请检查{serviceName}账号和密码是否正确。\n'
+                print(f'{serviceName}账号 {username} 登录失败，请检查{serviceName}账号和密码是否正确。')
 
-        delay = random.randint(1000, 8000)
-        await delay_time(delay)
-        
-    message += f'所有{serviceName}账号登录完成！'
-    await send_telegram_message(message)
-    print(f'所有{serviceName}账号登录完成！')
+            delay = random.randint(1000, 8000)
+            await delay_time(delay)
+            
+        message += f'所有{serviceName}账号登录完成！'
+        await send_telegram_message(message)
+        print(f'所有{serviceName}账号登录完成！')
+
+    finally:
+        await browser.close()
 
 async def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -131,8 +124,3 @@ async def send_telegram_message(message):
 
 if __name__ == '__main__':
     asyncio.run(main())
-    
-# 确保浏览器在完成后关闭
-if browser:
-    await browser.close()
-
