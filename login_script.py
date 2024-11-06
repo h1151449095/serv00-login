@@ -131,3 +131,8 @@ async def send_telegram_message(message):
 
 if __name__ == '__main__':
     asyncio.run(main())
+    
+# 确保浏览器在完成后关闭
+if browser:
+    await browser.close()
+
